@@ -1,0 +1,1221 @@
+import React, { useState, useEffect } from 'react';
+import { Zap, Send, Download, Upload, Target, X, AlertCircle, Plus, Search, Eye, EyeOff, Copy, Check, TrendingUp, TrendingDown, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { QRCodeSVG as QRCode } from 'qrcode.react';
+
+export default function Home() {
+  // Authentication States
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (username === 'ALANJACKSON' && password === 'Jackson01@') {
+      setIsAuthenticated(true);
+      localStorage.setItem('authToken', 'authenticated');
+      setLoginError('');
+    } else {
+      setLoginError('Invalid credentials');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUsername('');
+    setPassword('');
+    localStorage.removeItem('authToken');
+  };
+
+  // Notification State
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  React.useEffect(() => {
+    const authToken = localStorage.getItem('authToken');
+    if (authToken === 'authenticated') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  // Show notification immediately on login and every 2 minutes
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      setShowNotification(true);
+      setNotificationCount(prev => prev + 1);
+
+      const interval = setInterval(() => {
+        setShowNotification(true);
+        setNotificationCount(prev => prev + 1);
+      }, 120000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  const handleCloseNotification = () => {
+    setShowNotification(false);
+  };
+
+  const [activeTab, setActiveTab] = useState('Dashboard');
+  const [selectedAsset, setSelectedAsset] = useState<any>(null);
+  const [showAllAssets, setShowAllAssets] = useState(false);
+
+  // Modal States
+  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [transactionStep, setTransactionStep] = useState<'select' | 'details' | 'confirm'>('select');
+  const [txAsset, setTxAsset] = useState<any>(null);
+  const [sendAmount, setSendAmount] = useState('');
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
+  const [destinationType, setDestinationType] = useState<'wallet' | 'bank' | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+
+  // USD Withdrawal Bank Details States
+  const [usdBankDetails, setUsdBankDetails] = useState({
+    accountNumber: '',
+    routingNumber: '',
+    fullName: '',
+    bankName: '',
+    memo: ''
+  });
+  const [showUSDFeeConfirm, setShowUSDFeeConfirm] = useState(false);
+
+  // Price Alerts States
+  const [showAlertsModal, setShowAlertsModal] = useState(false);
+  const [alerts, setAlerts] = useState<Array<{id: string; assetId: number; assetSymbol: string; targetPrice: number; alertType: 'above' | 'below'; triggered: boolean}>>([]);
+  const [alertAssetId, setAlertAssetId] = useState<number | null>(null);
+  const [alertPrice, setAlertPrice] = useState('');
+  const [alertType, setAlertType] = useState<'above' | 'below'>('above');
+  const [triggeredAlerts, setTriggeredAlerts] = useState<Set<string>>(new Set());
+
+  // Transaction History States
+  const [transactions, setTransactions] = useState<Array<{id: string; type: 'buy' | 'sell' | 'deposit' | 'withdraw'; asset: string; amount: number; price: number; total: number; timestamp: string; status: 'completed' | 'pending' | 'failed'; network?: string}>>([]);
+  const [historySearchTerm, setHistorySearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'buy' | 'sell' | 'deposit' | 'withdraw'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
+
+  // The Master Asset List
+  const assets = [
+    { id: 1, symbol: 'BTC', name: 'Bitcoin', price: 45230.50, change: 3.2, networks: ['Bitcoin', 'Ethereum'], balance: 0.5234 },
+    { id: 2, symbol: 'ETH', name: 'Ethereum', price: 2456.80, change: 2.1, networks: ['Ethereum', 'Polygon'], balance: 5.234 },
+    { id: 3, symbol: 'USDT', name: 'Tether', price: 1.00, change: 0.1, networks: ['Ethereum', 'Polygon', 'Tron'], balance: 15000 },
+    { id: 4, symbol: 'BNB', name: 'Binance Coin', price: 612.45, change: -1.5, networks: ['BSC', 'Ethereum'], balance: 2.1 },
+    { id: 5, symbol: 'SOL', name: 'Solana', price: 198.75, change: 5.3, networks: ['Solana'], balance: 12.5 },
+    { id: 6, symbol: 'XRP', name: 'Ripple', price: 2.45, change: -0.8, networks: ['XRP Ledger'], balance: 500 },
+    { id: 7, symbol: 'ADA', name: 'Cardano', price: 1.08, change: 1.2, networks: ['Cardano'], balance: 1000 },
+    { id: 8, symbol: 'DOGE', name: 'Dogecoin', price: 0.38, change: 4.5, networks: ['Dogecoin'], balance: 5000 },
+  ];
+
+  const user = {
+    name: 'ALAN JACKSON',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alan',
+    metrics: {
+      balance: 50500.42,
+      dailyPnL: 0.00,
+      buyingPower: 2500,
+      totalAssets: 11,
+      totalProfit: 8750.25,
+      profitChange: 31.7
+    }
+  };
+
+  const chartData = [
+    { time: '00:00', value: 48000 },
+    { time: '04:00', value: 49200 },
+    { time: '08:00', value: 47800 },
+    { time: '12:00', value: 51200 },
+    { time: '16:00', value: 50500 },
+    { time: '20:00', value: 52300 },
+    { time: '24:00', value: 50500.42 },
+  ];
+
+  const networks = {
+    'Bitcoin': { fee: '0.0005', time: '10-30 min' },
+    'Ethereum': { fee: '0.005', time: '2-5 min' },
+    'Polygon': { fee: '0.0001', time: '1-2 min' },
+    'Tron': { fee: '1', time: '1-2 min' },
+    'BSC': { fee: '0.0005', time: '1-3 min' },
+    'Solana': { fee: '0.00025', time: '1-2 min' },
+  };
+
+  const resetModals = () => {
+    setShowBuyModal(false);
+    setShowSendModal(false);
+    setShowReceiveModal(false);
+    setShowAlertsModal(false);
+    setTransactionStep('select');
+    setTxAsset(null);
+    setSendAmount('');
+    setRecipientAddress('');
+    setSelectedNetwork(null);
+    setDestinationType(null);
+    setShowUSDFeeConfirm(false);
+    setUsdBankDetails({ accountNumber: '', routingNumber: '', fullName: '', bankName: '', memo: '' });
+  };
+
+  const handleAddAlert = () => {
+    if (alertAssetId && alertPrice) {
+      const asset = assets.find(a => a.id === alertAssetId);
+      if (asset) {
+        setAlerts([...alerts, {
+          id: Math.random().toString(),
+          assetId: alertAssetId,
+          assetSymbol: asset.symbol,
+          targetPrice: parseFloat(alertPrice),
+          alertType,
+          triggered: false
+        }]);
+        setAlertPrice('');
+      }
+    }
+  };
+
+  const activeAlertCount = alerts.filter(a => !a.triggered).length;
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#0B0E14] flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl">
+            <div className="flex flex-col items-center gap-4 mb-8">
+              <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+                <Zap size={32} className="fill-white text-white" />
+              </div>
+              <h1 className="text-2xl font-black text-white">AETHER.IO</h1>
+            </div>
+
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-black text-white mb-2">Welcome Back</h2>
+              <p className="text-blue-400 text-lg font-black">{user.name}</p>
+              <p className="text-slate-400 text-sm mt-2">Sign in to your account</p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Username</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                />
+              </div>
+
+              {loginError && (
+                <div className="bg-red-500/10 border border-red-500/50 p-3 rounded-xl text-red-400 text-sm font-black text-center">
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl transition-all mt-6"
+              >
+                Sign In
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0B0E14] text-slate-100 flex font-sans">
+      {/* Withdrawal Fee Notification */}
+      {showNotification && (
+        <div className="fixed top-6 right-6 z-50 bg-gradient-to-r from-amber-600 to-orange-600 border border-amber-500/50 rounded-2xl p-4 shadow-2xl shadow-amber-600/30 backdrop-blur-sm max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-1">
+              <AlertCircle size={20} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="font-black text-white text-sm">ACTION NEEDED ON YOUR WITHDRAWAL FEE</p>
+              <p className="text-xs text-amber-100 mt-1">You have pending withdrawal fees. Please review and confirm.</p>
+            </div>
+            <button onClick={handleCloseNotification} className="flex-shrink-0 text-white hover:text-amber-200">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sidebar */}
+      <aside className="hidden lg:flex flex-col w-64 bg-[#0B0E14] border-r border-white/5 p-6">
+        <div className="flex items-center gap-3 mb-12">
+          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+            <Zap size={24} className="fill-white text-white" />
+          </div>
+          <h1 className="text-xl font-black text-white">AETHER.IO</h1>
+        </div>
+
+        <nav className="space-y-2 flex-1">
+          {['Dashboard', 'Portfolio', 'Markets', 'History'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`w-full text-left px-4 py-3 rounded-xl font-black text-sm uppercase transition-all ${
+                activeTab === tab
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:bg-white/5'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </nav>
+
+        <div className="space-y-3 border-t border-white/5 pt-6">
+          <button
+            onClick={() => setShowAlertsModal(true)}
+            className="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-black text-sm uppercase transition-all"
+          >
+            <Target size={16} /> Alerts ({activeAlertCount})
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full px-4 py-3 rounded-xl bg-red-600/10 hover:bg-red-600/20 text-red-400 font-black text-sm uppercase transition-all"
+          >
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto pb-20 lg:pb-0">
+        {/* Header */}
+        <div className="bg-[#0B0E14] border-b border-white/5 sticky top-0 z-40">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <img src={user.avatar} alt="User" className="w-10 h-10 rounded-full" />
+              <div>
+                <p className="font-black text-white text-sm">{user.name}</p>
+                <p className="text-slate-400 text-xs">Balance: ${user.metrics.balance.toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowAlertsModal(true)}
+                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-all lg:hidden"
+              >
+                <Target size={20} />
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg bg-red-600/10 hover:bg-red-600/20 text-red-400 transition-all lg:hidden"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="p-6 space-y-6">
+          {activeTab === 'Dashboard' && (
+            <>
+              {/* Metrics Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Total PORTFOLIO Balance</p>
+                  <p className="text-3xl font-black text-white">${user.metrics.balance.toLocaleString()}</p>
+                  <p className="text-xs text-emerald-400 mt-2">+2.1% (24h)</p>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">WITHDRAWAL BALANCE</p>
+                  <p className="text-3xl font-black text-white">${user.metrics.dailyPnL.toLocaleString()}</p>
+                  <p className="text-xs text-slate-400 mt-2">AVAILABLE TO WITHDRAW</p>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">WITHDRAWAL FEE</p>
+                  <p className="text-3xl font-black text-white">-${user.metrics.buyingPower.toLocaleString()}</p>
+                  <p className="text-xs text-slate-400 mt-2">Available</p>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Total assets</p>
+                  <p className="text-3xl font-black text-white">2</p>
+                  <p className="text-xs mt-2" style={{color: '#b8b2b2'}}>Holding</p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* BUY Button */}
+                <button
+                  onClick={() => { setShowBuyModal(true); setTransactionStep('select'); }}
+                  className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/50"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700"></div>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-emerald-400/0 to-emerald-300/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative px-6 py-4 flex flex-col items-center justify-center gap-2">
+                    <TrendingUp size={24} className="text-white" />
+                    <span className="font-black text-white text-sm uppercase tracking-wider">Buy</span>
+                  </div>
+                </button>
+
+                {/* SELL Button */}
+                <button
+                  onClick={() => { setShowSendModal(true); setTransactionStep('select'); }}
+                  className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/50"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-red-500 via-red-600 to-red-700"></div>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-red-400/0 to-red-300/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative px-6 py-4 flex flex-col items-center justify-center gap-2">
+                    <TrendingDown size={24} className="text-white" />
+                    <span className="font-black text-white text-sm uppercase tracking-wider">Sell</span>
+                  </div>
+                </button>
+
+                {/* DEPOSIT Button */}
+                <button
+                  onClick={() => { setShowReceiveModal(true); setTransactionStep('select'); }}
+                  className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/50"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700"></div>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-blue-400/0 to-blue-300/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative px-6 py-4 flex flex-col items-center justify-center gap-2">
+                    <ArrowDownCircle size={24} className="text-white" />
+                    <span className="font-black text-white text-sm uppercase tracking-wider">Deposit</span>
+                  </div>
+                </button>
+
+                {/* WITHDRAW Button */}
+                <button
+                  onClick={() => { setShowSendModal(true); setTransactionStep('select'); }}
+                  className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/50"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700"></div>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/0 to-amber-300/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative px-6 py-4 flex flex-col items-center justify-center gap-2">
+                    <ArrowUpCircle size={24} className="text-white" />
+                    <span className="font-black text-white text-sm uppercase tracking-wider">Withdraw</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Chart */}
+              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                <p className="text-sm font-black mb-4">Portfolio Value</p>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="time" stroke="rgba(255,255,255,0.3)" />
+                    <YAxis stroke="rgba(255,255,255,0.3)" />
+                    <Tooltip contentStyle={{ backgroundColor: '#1a1f2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                    <Area type="monotone" dataKey="value" stroke="#2563eb" fillOpacity={1} fill="url(#colorValue)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Assets */}
+              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                <p className="text-sm font-black mb-4">Your Assets</p>
+                <div className="space-y-3">
+                  {(showAllAssets ? assets : assets.slice(0, 4)).map(asset => (
+                    <div key={asset.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-600/20 rounded-full flex items-center justify-center">
+                          <p className="font-black text-xs">{asset.symbol[0]}</p>
+                        </div>
+                        <div>
+                          <p className="font-black text-sm">{asset.symbol}</p>
+                          <p className="text-[10px] text-slate-500">{asset.balance} {asset.symbol}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-sm">${asset.price.toLocaleString()}</p>
+                        <p className={`text-xs ${asset.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{asset.change >= 0 ? '+' : ''}{asset.change}%</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {!showAllAssets && (
+                  <button
+                    onClick={() => setShowAllAssets(true)}
+                    className="w-full mt-4 py-2 text-blue-400 font-black text-sm uppercase hover:text-blue-300 transition-all"
+                  >
+                    View All Assets
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'Portfolio' && (
+            <>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Total Assets</p>
+                    <p className="text-2xl font-black">{user.metrics.totalAssets}</p>
+                    <p className="text-xs text-emerald-400 mt-2">+1 new</p>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Portfolio Value</p>
+                    <p className="text-2xl font-black">${user.metrics.balance.toLocaleString()}</p>
+                    <p className="text-xs text-slate-400 mt-2">USD</p>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Unrealized Gain</p>
+                    <p className="text-2xl font-black text-emerald-400">${user.metrics.totalProfit.toLocaleString()}</p>
+                    <p className="text-xs text-emerald-400 mt-2">+{user.metrics.profitChange}%</p>
+                  </div>
+                </div>
+
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                  <p className="text-sm font-black mb-4">Holdings</p>
+                  <div className="space-y-3">
+                    {assets.map(asset => (
+                      <div key={asset.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-600/20 rounded-full flex items-center justify-center">
+                            <p className="font-black text-xs">{asset.symbol[0]}</p>
+                          </div>
+                          <div>
+                            <p className="font-black text-sm">{asset.symbol}</p>
+                            <p className="text-[10px] text-slate-500">{asset.name}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black text-sm">{asset.balance} {asset.symbol}</p>
+                          <p className="text-[10px] text-slate-400">${(asset.balance * asset.price).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'Markets' && (
+            <>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Market Cap</p>
+                    <p className="text-2xl font-black">$2.4T</p>
+                    <p className="text-xs text-emerald-400 mt-2">+2.1% (24h)</p>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">24h Volume</p>
+                    <p className="text-2xl font-black">$89.2B</p>
+                    <p className="text-xs text-slate-400 mt-2">Global</p>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">BTC Dominance</p>
+                    <p className="text-2xl font-black">48.5%</p>
+                    <p className="text-xs text-emerald-400 mt-2">+0.3%</p>
+                  </div>
+                </div>
+
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                  <p className="text-sm font-black mb-4">Top Gainers</p>
+                  <div className="space-y-3">
+                    {[
+                      { symbol: 'PEPE', change: 45.2, price: 0.0000089 },
+                      { symbol: 'SHIB', change: 28.5, price: 0.0000234 },
+                      { symbol: 'DOGE', change: 15.3, price: 0.38 },
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+                        <div>
+                          <p className="font-black text-sm">{item.symbol}</p>
+                          <p className="text-[10px] text-slate-400">${item.price}</p>
+                        </div>
+                        <p className="font-black text-emerald-400">+{item.change}%</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                  <p className="text-sm font-black mb-4">All Cryptocurrencies</p>
+                  <div className="space-y-3">
+                    {assets.map(asset => (
+                      <div key={asset.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-600/20 rounded-full flex items-center justify-center">
+                            <p className="font-black text-xs">{asset.symbol[0]}</p>
+                          </div>
+                          <div>
+                            <p className="font-black text-sm">{asset.symbol}</p>
+                            <p className="text-[10px] text-slate-500">{asset.name}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black text-sm">${asset.price.toLocaleString()}</p>
+                          <p className={`text-xs ${asset.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{asset.change >= 0 ? '+' : ''}{asset.change}%</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'History' && (
+            <>
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <input
+                    type="text"
+                    placeholder="Search transactions..."
+                    value={historySearchTerm}
+                    onChange={(e) => setHistorySearchTerm(e.target.value)}
+                    className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                  />
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value as any)}
+                    className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-blue-500/50 transition-all"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="buy">Buy</option>
+                    <option value="sell">Sell</option>
+                    <option value="deposit">Deposit</option>
+                    <option value="withdraw">Withdraw</option>
+                  </select>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                    className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-blue-500/50 transition-all"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                </div>
+
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/5">
+                          <th className="text-left px-6 py-4 text-slate-400 text-[10px] font-black uppercase">Type</th>
+                          <th className="text-left px-6 py-4 text-slate-400 text-[10px] font-black uppercase">Asset</th>
+                          <th className="text-left px-6 py-4 text-slate-400 text-[10px] font-black uppercase">Amount</th>
+                          <th className="text-left px-6 py-4 text-slate-400 text-[10px] font-black uppercase">Total</th>
+                          <th className="text-left px-6 py-4 text-slate-400 text-[10px] font-black uppercase">Time</th>
+                          <th className="text-left px-6 py-4 text-slate-400 text-[10px] font-black uppercase">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { type: 'convert', asset: 'USDT-USD', amount: 50000, price: 1, total: 50500, time: '4 days ago', status: 'completed' },
+                          { type: 'deposit', asset: 'USDT', amount: 50000, price: 1, total: 50000, time: '5 days ago', status: 'completed' },
+                        ].map((tx, idx) => (
+                          <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-all">
+                            <td className="px-6 py-4 font-black text-sm capitalize">{tx.type}</td>
+                            <td className="px-6 py-4 font-black text-sm">{tx.asset}</td>
+                            <td className="px-6 py-4 text-sm">{tx.amount}</td>
+                            <td className="px-6 py-4 font-black text-sm">${tx.total.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-sm text-slate-400">{tx.time}</td>
+                            <td className="px-6 py-4">
+                              <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-black capitalize">
+                                {tx.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#0B0E14] border-t border-white/5 flex">
+          {['Dashboard', 'Portfolio', 'Markets', 'History'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-3 text-xs font-black uppercase transition-all ${
+                activeTab === tab
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:bg-white/5'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Add padding for mobile bottom nav */}
+        <div className="lg:hidden h-20"></div>
+      </main>
+
+      {/* MODALS */}
+
+      {/* MODAL: ALERTS */}
+      {showAlertsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowAlertsModal(false)}></div>
+          <div className="bg-[#0B0E14] border border-white/10 w-full max-w-2xl rounded-[2rem] relative z-10 overflow-hidden shadow-2xl">
+            <div className="p-8 border-b border-white/5 flex justify-between items-center">
+              <h2 className="text-2xl font-black italic uppercase tracking-tighter">Price Alerts</h2>
+              <button onClick={() => setShowAlertsModal(false)} className="p-2 bg-white/5 rounded-full hover:bg-white/10"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-6">
+              {alerts.length > 0 && (
+                <div className="space-y-3">
+                  {alerts.map(alert => (
+                    <div key={alert.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                      <div>
+                        <p className="font-black text-sm">{alert.assetSymbol}</p>
+                        <p className="text-xs text-slate-400">{alert.alertType === 'above' ? 'Alert when price goes above' : 'Alert when price goes below'} ${alert.targetPrice}</p>
+                      </div>
+                      <button
+                        onClick={() => setAlerts(alerts.filter(a => a.id !== alert.id))}
+                        className="p-2 hover:bg-red-600/20 rounded-lg transition-all"
+                      >
+                        <X size={16} className="text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-4 border-t border-white/10 pt-6">
+                <div>
+                  <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Select Asset</label>
+                  <select
+                    value={alertAssetId || ''}
+                    onChange={(e) => setAlertAssetId(parseInt(e.target.value))}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-blue-500/50 transition-all"
+                  >
+                    <option value="">Choose an asset</option>
+                    {assets.map(asset => (
+                      <option key={asset.id} value={asset.id}>{asset.symbol}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Alert Type</label>
+                  <select
+                    value={alertType}
+                    onChange={(e) => setAlertType(e.target.value as 'above' | 'below')}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-blue-500/50 transition-all"
+                  >
+                    <option value="above">Price Above</option>
+                    <option value="below">Price Below</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Target Price</label>
+                  <input
+                    type="number"
+                    value={alertPrice}
+                    onChange={(e) => setAlertPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                  />
+                </div>
+
+                <button
+                  onClick={handleAddAlert}
+                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} /> Add Alert
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BUY */}
+      {showBuyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={resetModals}></div>
+          <div className="bg-[#0B0E14] border border-white/10 w-full max-w-2xl rounded-[2rem] relative z-10 overflow-hidden shadow-2xl">
+            <div className="p-8 border-b border-white/5 flex justify-between items-center">
+              <h2 className="text-2xl font-black italic uppercase tracking-tighter">Buy Crypto</h2>
+              <button onClick={resetModals} className="p-2 bg-white/5 rounded-full hover:bg-white/10"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-6">
+              {transactionStep === 'select' && (
+                <div className="space-y-4">
+                  <p className="text-slate-400 text-sm">Select an asset to buy</p>
+                  <div className="grid grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto">
+                    {assets.map(asset => (
+                      <button
+                        key={asset.id}
+                        onClick={() => { setTxAsset(asset); setTransactionStep('details'); }}
+                        className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all text-left"
+                      >
+                        <p className="font-black text-sm mb-1">{asset.symbol}</p>
+                        <p className="text-[10px] text-slate-400">${asset.price.toLocaleString()}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {transactionStep === 'details' && txAsset && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Amount</label>
+                    <input
+                      type="number"
+                      value={sendAmount}
+                      onChange={(e) => setSendAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setTransactionStep('select')}
+                      className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black text-sm uppercase transition-all"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={() => setTransactionStep('confirm')}
+                      className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase transition-all"
+                    >
+                      Review
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {transactionStep === 'confirm' && txAsset && (
+                <div className="space-y-4">
+                  <div className="bg-white/5 border border-white/10 p-4 rounded-xl space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 text-sm">Asset</span>
+                      <span className="font-black">{txAsset.symbol}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 text-sm">Amount</span>
+                      <span className="font-black">{sendAmount} {txAsset.symbol}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 text-sm">Price</span>
+                      <span className="font-black">${txAsset.price.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between pt-3 border-t border-white/10">
+                      <span className="text-slate-400 text-sm">Total</span>
+                      <span className="font-black text-blue-400">${(parseFloat(sendAmount) * txAsset.price).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={resetModals}
+                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase transition-all"
+                  >
+                    Confirm Purchase
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: WITHDRAW */}
+      {showSendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={resetModals}></div>
+          <div className="bg-[#0B0E14] border border-white/10 w-full max-w-2xl rounded-[2rem] relative z-10 overflow-hidden shadow-2xl">
+            <div className="p-8 border-b border-white/5 flex justify-between items-center">
+              <h2 className="text-2xl font-black italic uppercase tracking-tighter">Withdraw</h2>
+              <button onClick={resetModals} className="p-2 bg-white/5 rounded-full hover:bg-white/10"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-6">
+              {transactionStep === 'select' && (
+                <div className="space-y-4">
+                  <p className="text-slate-400 text-sm">Select an asset to withdraw</p>
+                  <div className="grid grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto">
+                    <button
+                      onClick={() => { setTxAsset({id: 0, symbol: 'USD', name: 'US Dollar', price: 1, change: 0, networks: [], isUSD: true}); setTransactionStep('details'); }}
+                      className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all text-left"
+                    >
+                      <p className="font-black text-sm mb-1">USD</p>
+                      <p className="text-[10px] text-slate-400">$1.00</p>
+                    </button>
+                    {assets.map(asset => (
+                      <button
+                        key={asset.id}
+                        onClick={() => { setTxAsset(asset); setTransactionStep('details'); }}
+                        className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all text-left"
+                      >
+                        <p className="font-black text-sm mb-1">{asset.symbol}</p>
+                        <p className="text-[10px] text-slate-400">${asset.price.toLocaleString()}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {transactionStep === 'details' && txAsset && (
+                <div className="space-y-4">
+                  {txAsset.isUSD ? (
+                    <>
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Amount (USD)</label>
+                        <input
+                          type="number"
+                          value={sendAmount}
+                          onChange={(e) => setSendAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Account Number</label>
+                        <input
+                          type="text"
+                          value={usdBankDetails.accountNumber}
+                          onChange={(e) => setUsdBankDetails({...usdBankDetails, accountNumber: e.target.value})}
+                          placeholder="Enter account number"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Routing Number</label>
+                        <input
+                          type="text"
+                          value={usdBankDetails.routingNumber}
+                          onChange={(e) => setUsdBankDetails({...usdBankDetails, routingNumber: e.target.value})}
+                          placeholder="Enter routing number"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Full Name</label>
+                        <input
+                          type="text"
+                          value={usdBankDetails.fullName}
+                          onChange={(e) => setUsdBankDetails({...usdBankDetails, fullName: e.target.value})}
+                          placeholder="Enter full name"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Bank Name</label>
+                        <input
+                          type="text"
+                          value={usdBankDetails.bankName}
+                          onChange={(e) => setUsdBankDetails({...usdBankDetails, bankName: e.target.value})}
+                          placeholder="Enter bank name"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Memo (Optional)</label>
+                        <input
+                          type="text"
+                          value={usdBankDetails.memo}
+                          onChange={(e) => setUsdBankDetails({...usdBankDetails, memo: e.target.value})}
+                          placeholder="Enter memo"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setTransactionStep('select')}
+                          className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black text-sm uppercase transition-all"
+                        >
+                          Back
+                        </button>
+                        <button
+                          onClick={() => setShowUSDFeeConfirm(true)}
+                          className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase transition-all"
+                        >
+                          Review and Send
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Select Network</label>
+                        <select
+                          value={selectedNetwork || ''}
+                          onChange={(e) => setSelectedNetwork(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-blue-500/50 transition-all"
+                        >
+                          <option value="">Choose a network</option>
+                          {txAsset.networks.map((net: string) => (
+                            <option key={net} value={net}>{net}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Amount</label>
+                        <input
+                          type="number"
+                          value={sendAmount}
+                          onChange={(e) => setSendAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Send To</label>
+                        <div className="flex gap-3 mb-3">
+                          <button
+                            onClick={() => setDestinationType('wallet')}
+                            className={`flex-1 py-2 rounded-lg font-black text-sm uppercase transition-all ${
+                              destinationType === 'wallet'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                            }`}
+                          >
+                            Wallet Address
+                          </button>
+                          <button
+                            onClick={() => setDestinationType('bank')}
+                            className={`flex-1 py-2 rounded-lg font-black text-sm uppercase transition-all ${
+                              destinationType === 'bank'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                            }`}
+                          >
+                            Bank Account
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={recipientAddress}
+                          onChange={(e) => setRecipientAddress(e.target.value)}
+                          placeholder={destinationType === 'wallet' ? '0x...' : 'Bank Account Details'}
+                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 outline-none focus:border-blue-500/50 transition-all"
+                        />
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setTransactionStep('select')}
+                          className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black text-sm uppercase transition-all"
+                        >
+                          Back
+                        </button>
+                        <button
+                          onClick={() => setTransactionStep('confirm')}
+                          className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase transition-all"
+                        >
+                          Review
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {transactionStep === 'confirm' && txAsset && selectedNetwork && !txAsset.isUSD && (
+                <div className="space-y-4">
+                  <div className="bg-white/5 border border-white/10 p-4 rounded-xl space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 text-sm">Recipient</span>
+                      <span className="font-black text-xs">{recipientAddress.slice(0, 10)}...</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 text-sm">Amount</span>
+                      <span className="font-black">{sendAmount} {txAsset?.symbol}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 text-sm">Network</span>
+                      <span className="font-black">{selectedNetwork}</span>
+                    </div>
+                    <div className="flex justify-between pt-3 border-t border-white/10">
+                      <span className="text-slate-400 text-sm">Network Fee</span>
+                      <span className="font-black text-orange-400">{selectedNetwork && networks[selectedNetwork as keyof typeof networks]?.fee} {txAsset.symbol}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-500/10 border border-red-500/50 p-6 rounded-xl flex flex-col items-center gap-4">
+                    <AlertCircle size={48} className="text-red-500" />
+                    <p className="text-red-400 font-black text-center text-lg">THIS PROCESS COULD NOT BE COMPLETE, PLEASE CONTACT YOUR BROKER TO PROCEED</p>
+                  </div>
+
+                  <button
+                    onClick={resetModals}
+                    className="w-full py-3 rounded-xl bg-slate-600 hover:bg-slate-500 text-white font-black text-sm uppercase transition-all"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* USD WITHDRAWAL FEE CONFIRMATION */}
+      {showUSDFeeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowUSDFeeConfirm(false)}></div>
+          <div className="bg-[#0B0E14] border border-white/10 w-full max-w-md rounded-[2rem] relative z-10 overflow-hidden shadow-2xl">
+            <div className="p-8 flex flex-col items-center gap-6">
+              <div className="w-16 h-16 bg-red-600/10 border border-red-600/30 rounded-full flex items-center justify-center">
+                <AlertCircle size={32} className="text-red-500" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-white mb-2">WITHDRAWAL FEE NEEDED</h2>
+                <p className="text-slate-400 text-sm">WITHDRAWAL FEE IS NEEDED TO COMPLETE THIS TRANSACTION</p>
+              </div>
+              <div className="w-full flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowUSDFeeConfirm(false);
+                    setShowSendModal(false);
+                    setTransactionStep('select');
+                    setSendAmount('');
+                    setUsdBankDetails({accountNumber: '', routingNumber: '', fullName: '', bankName: '', memo: ''});
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-slate-600 hover:bg-slate-500 text-white font-black text-sm uppercase transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUSDFeeConfirm(false);
+                    setShowSendModal(false);
+                    setTransactionStep('select');
+                    setSendAmount('');
+                    setUsdBankDetails({accountNumber: '', routingNumber: '', fullName: '', bankName: '', memo: ''});
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase transition-all"
+                >
+                  Pay Fee
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: RECEIVE */}
+      {showReceiveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={resetModals}></div>
+          <div className="bg-[#0B0E14] border border-white/10 w-full max-w-2xl rounded-[2rem] relative z-10 overflow-hidden shadow-2xl">
+            <div className="p-8 border-b border-white/5 flex justify-between items-center">
+              <h2 className="text-2xl font-black italic uppercase tracking-tighter">Receive Crypto</h2>
+              <button onClick={resetModals} className="p-2 bg-white/5 rounded-full hover:bg-white/10"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-6">
+              {transactionStep === 'select' && (
+                <div className="space-y-4">
+                  <p className="text-slate-400 text-sm">Select an asset to receive</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[assets.find(a => a.symbol === 'BTC'), assets.find(a => a.symbol === 'USDT')].filter(Boolean).map(asset => (
+                      <button
+                        key={asset?.id}
+                        onClick={() => { setTxAsset(asset); setTransactionStep('details'); }}
+                        className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all text-left"
+                      >
+                        <p className="font-black text-sm mb-1">{asset?.symbol}</p>
+                        <p className="text-[10px] text-slate-400">${asset?.price.toLocaleString()}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {transactionStep === 'details' && txAsset && (
+                <div className="space-y-4">
+                    <div className="flex flex-col items-center gap-4">
+                    <div className="w-48 h-48 bg-white rounded-lg flex items-center justify-center p-4">
+                      <QRCode 
+                        value={txAsset.symbol === 'BTC' ? 'bc1qmscv8zzkqmw8l0emn6y9hmygamt7gpsgpk6qx8' : '0x7Ef449e165BbAe95aFADcd9B1F4B1B22b8244c77'}
+                        size={200}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+                    <p className="text-slate-400 text-sm text-center">Scan to receive {txAsset.symbol}</p>
+                  </div>
+
+                  {txAsset.symbol === 'USDT' && (
+                    <div>
+                      <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Select Network</label>
+                      <select
+                        value={selectedNetwork || ''}
+                        onChange={(e) => setSelectedNetwork(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-blue-500/50 transition-all"
+                      >
+                        <option value="">Choose a network</option>
+                        <option value="Ethereum">Ethereum (ETH)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest block mb-2">Your Address</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={txAsset.symbol === 'BTC' ? 'bc1qmscv8zzkqmw8l0emn6y9hmygamt7gpsgpk6qx8' : '0x7Ef449e165BbAe95aFADcd9B1F4B1B22b8244c77'}
+                        readOnly
+                        className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none text-xs"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(txAsset.symbol === 'BTC' ? 'bc1qmscv8zzkqmw8l0emn6y9hmygamt7gpsgpk6qx8' : '0x7Ef449e165BbAe95aFADcd9B1F4B1B22b8244c77');
+                          setCopyFeedback(true);
+                          setTimeout(() => setCopyFeedback(false), 2000);
+                        }}
+                        className="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black transition-all"
+                      >
+                        {copyFeedback ? <Check size={20} /> : <Copy size={20} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setTransactionStep('select')}
+                    className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black text-sm uppercase transition-all"
+                  >
+                    Back
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
